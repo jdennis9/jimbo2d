@@ -1,0 +1,11 @@
+.*
+!/.gitignore
+!/.gitmodules
+*.lib
+*.pdb
+*.res
+*.a
+*.exe
+*.dll
+*.so
+ols.json

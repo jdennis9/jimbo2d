@@ -1,0 +1,153 @@
+package j2d
+
+import mu "vendor:microui"
+
+Key :: enum u8 {
+	Unknown,
+
+	_0, _1, _2, _3, _4, _5, _6, _7, _8, _9,
+
+	A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+
+	F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
+
+	Shift, Alt, Ctrl,
+
+	Up, Down, Left, Right,
+
+	Minus, Equals, Grave, LeftBrace, RightBrace, SemiColon, Apostrophe,
+	Comma, Period, Slash, Backslash,
+
+	Escape, Backspace, Enter, Tab,
+
+	Numlock, KpDivide, KpMultiply, KpSubtract, KpAdd, KpEnter, KpPeriod,
+	Kp1, Kp2, Kp3, Kp4, Kp5, Kp6, Kp7, Kp8, Kp9, Kp0,
+
+	Insert, Home, PageUp, PageDown, Delete, End,
+}
+
+Mouse_Button :: enum u8 {
+	Unknown,
+	Left, Right, Middle,
+	X1, X2, X3, X4, X5, X6,
+}
+
+@(private="file")
+_input: struct {
+	keys:      [Key]bool,
+	old_keys:  [Key]bool,
+	mouse:     [Mouse_Button]bool,
+	old_mouse: [Mouse_Button]bool,
+	mouse_pos: Vec2,
+}
+
+@(private="file")
+_map_to_mu_key :: proc(k: Key) -> (mu.Key, bool) {
+	#partial switch k {
+	case .A:         return .A, true
+	case .X:         return .X, true
+	case .C:         return .C, true
+	case .V:         return .V, true
+	case .Shift:     return .SHIFT, true
+	case .Ctrl:      return .CTRL, true
+	case .Alt:       return .ALT, true
+	case .Enter:     return .RETURN, true
+	case .Backspace: return .BACKSPACE, true
+	case .Home:      return .HOME, true
+	case .Left:      return .LEFT, true
+	case .Right:     return .RIGHT, true
+	case .End:       return .END, true
+	case .Delete:    return .DELETE, true
+	}
+
+	return nil, false
+}
+
+@(private="file")
+_map_to_mu_button :: proc(m: Mouse_Button) -> (mu.Mouse, bool) {
+	#partial switch m {
+	case .Left:   return .LEFT, true
+	case .Right:  return .RIGHT, true
+	case .Middle: return .MIDDLE, true
+	}
+
+	return .LEFT, false
+}
+
+@private
+_input_pre_update :: proc() {
+	_input.old_keys = _input.keys
+	_input.old_mouse = _input.mouse
+}
+
+send_key_down :: proc "contextless" (k: Key) {
+	_input.keys[k] = true
+	if is_microui_enabled() {
+		context = get_context()
+		if mapped, ok := _map_to_mu_key(k); ok {
+			mu.input_key_down(get_microui_context(), mapped)
+		}
+	}
+}
+
+send_key_up :: proc "contextless" (k: Key) {
+	_input.keys[k] = false
+	if is_microui_enabled() {
+		context = get_context()
+		if mapped, ok := _map_to_mu_key(k); ok {
+			mu.input_key_up(get_microui_context(), mapped)
+		}
+	}
+}
+
+is_key_down :: proc "contextless" (k: Key) -> bool {
+	return _input.keys[k]
+}
+
+was_key_pressed :: proc "contextless" (k: Key) -> bool {
+	return _input.keys[k] && !_input.old_keys[k]
+}
+
+was_key_released :: proc "contextless" (k: Key) -> bool {
+	return !_input.keys[k] && _input.old_keys[k]
+}
+
+send_mouse_motion :: proc "contextless" (pos: Vec2) {
+	_input.mouse_pos = pos
+	if is_microui_enabled() {
+		context = get_context()
+		mu.input_mouse_move(get_microui_context(), i32(pos.x), i32(pos.y))
+	}
+}
+
+get_mouse_pos :: proc "contextless" () -> Vec2 {
+	return _input.mouse_pos
+}
+
+send_mouse_down :: proc "contextless" (button: Mouse_Button) {
+	_input.mouse[button] = true
+	if is_microui_enabled() {
+		context = get_context()
+		if mapped, ok := _map_to_mu_button(button); ok {
+			mu.input_mouse_down(
+				get_microui_context(),
+				auto_cast _input.mouse_pos.x, auto_cast _input.mouse_pos.y,
+				mapped
+			)
+		}
+	}
+}
+
+send_mouse_up :: proc "contextless" (button: Mouse_Button) {
+	_input.mouse[button] = false
+	if is_microui_enabled() {
+		context = get_context()
+		if mapped, ok := _map_to_mu_button(button); ok {
+			mu.input_mouse_up(
+				get_microui_context(),
+				auto_cast _input.mouse_pos.x, auto_cast _input.mouse_pos.y,
+				mapped
+			)
+		}
+	}
+}
