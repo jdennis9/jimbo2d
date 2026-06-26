@@ -15,10 +15,6 @@ GL_Shader :: struct {
 }
 
 Video_Impl_Data_OpenGL :: struct {
-	shader_default_vert: u32,
-	shader_color_frag:   u32,
-	shader_texture_frag: u32,
-	shader_sdf_frag:     u32,
 	vao:                 u32,
 	programs:            map[GL_Program_Key]u32,
 	vertex_buffer:       u32,
@@ -34,30 +30,15 @@ _gl: Video_Impl_Data_OpenGL
 _video_init_opengl :: proc(
 	set_proc_address: gl.Set_Proc_Address_Type,
 ) -> bool {
-	log.debug("Loading OpenGL 3.0")
+	log.debug("Loading OpenGL 3.3")
 
-	gl.load_up_to(3, 0, set_proc_address)
+	gl.load_up_to(3, 3, set_proc_address)
 	gl.GenVertexArrays(1, &_gl.vao)
 
-	load_shader :: proc(code: string, type: gl.Shader_Type) -> (h: u32, ok: bool) {
-		h, ok = gl.compile_shader_from_source(code, type)
-
-		if !ok {
-			message, _ := gl.get_last_error_message()
-			log.error(message)
-			return
-		}
-
-		return
-	}
-
-	_gl.shader_default_vert = load_shader(GL_SHADER_DEFAULT_VERT, .VERTEX_SHADER) or_return
-	_gl.shader_color_frag   = load_shader(GL_SHADER_COLOR_FRAG, .FRAGMENT_SHADER) or_return
-	_gl.shader_texture_frag = load_shader(GL_SHADER_TEXTURE_FRAG, .FRAGMENT_SHADER) or_return
-	_gl.shader_sdf_frag     = load_shader(GL_SHADER_SDF_FRAG, .FRAGMENT_SHADER) or_return
-
-	_video_impl_create_texture = _create_texture
+	_video_impl_create_texture  = _create_texture
 	_video_impl_destroy_texture = _destroy_texture
+	_video_impl_create_shader   = _create_shader
+	_video_impl_destroy_shader  = _destroy_shader
 
 	_video_impl_clear = proc(color: Color) {
 		gl.ClearColor(f32(color.r) / 255.0, f32(color.g) / 255.0, f32(color.b) / 255.0, f32(color.a) / 255.0)
@@ -158,27 +139,52 @@ _destroy_texture :: proc(tex: Texture) {
 }
 
 @(private="file")
-_render_frame :: proc(drawlist: ^Drawlist) {
-	display_size := get_window_size()
+_create_shader :: proc(desc: Shader_Desc) -> (impl: rawptr, ok: bool) {
+	compile_ok: bool
+	s := new(GL_Shader)
+	defer if !ok do free(s)
 
-	select_shaders :: proc(s: Draw_State) -> (key: GL_Program_Key, ok: bool) {
-		ok = true
-		key.vert_shader = _gl.shader_default_vert
-		if s.texture == nil {
-			key.frag_shader =_gl.shader_color_frag
-		}
-		else if .SDF in s.flags {
-			key.frag_shader = _gl.shader_sdf_frag
-		}
-		else {
-			key.frag_shader = _gl.shader_texture_frag
-		}
+	assert(desc.glsl != "")
+
+	stages := [Shader_Stage]gl.Shader_Type {
+		.Vertex = .VERTEX_SHADER,
+		.Fragment = .FRAGMENT_SHADER,
+	}
+
+	s.gl_handle, compile_ok = gl.compile_shader_from_source(desc.glsl, stages[desc.stage])
+
+	if !compile_ok {
+		message, _ := gl.get_last_error_message()
+		log.error(message)
 		return
 	}
 
+	impl = s
+	ok = true
+	return
+}
+
+@(private="file")
+_destroy_shader :: proc(impl: rawptr) {
+	if impl == nil do return
+	s := cast(^GL_Shader) impl
+	gl.DeleteShader(s.gl_handle)
+	free(s)
+}
+
+@(private="file")
+_render_frame :: proc(drawlist: ^Drawlist) {
+	display_size := get_window_size()
+
 	apply_state :: proc(s: Draw_State) -> (program: u32, ok: bool) {
 		have_program: bool
-		shaders := select_shaders(s) or_return
+		shaders: GL_Program_Key
+
+		shaders.vert_shader = _get_shader_handle(s.vert_shader)
+		shaders.frag_shader = _get_shader_handle(s.frag_shader)
+
+		if shaders.frag_shader == 0 || shaders.vert_shader == 0 do return
+
 		program, have_program = _gl.programs[shaders]
 
 		if have_program {
@@ -291,6 +297,13 @@ _render_frame :: proc(drawlist: ^Drawlist) {
 			gl.BindTexture(gl.TEXTURE_2D, 0)
 		}
 	}
+}
+
+@(private="file")
+_get_shader_handle :: proc(s: Shader) -> u32 {
+	g := cast(^GL_Shader) s.impl
+	if g == nil do return 0
+	return g.gl_handle
 }
 
 GL_SHADER_DEFAULT_VERT ::

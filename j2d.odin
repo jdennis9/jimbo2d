@@ -54,6 +54,8 @@ init :: proc(
 	reserve(&state.drawlist.indices, 16<<10)
 	reserve(&state.drawlist.vertices, 16<<10)
 
+	load_builtin_shaders() or_return
+
 	return true
 }
 

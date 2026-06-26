@@ -39,8 +39,14 @@ Texture_Desc :: struct {
 	flags:  Texture_Desc_Flags,
 }
 
+Shader_Stage :: enum {
+	Vertex,
+	Fragment,
+}
+
 Shader_Desc :: struct {
-	glsl: string,
+	stage: Shader_Stage,
+	glsl:  string,
 }
 
 // @TODO: Support custom shaders
@@ -119,4 +125,14 @@ create_texture :: proc(desc: Texture_Desc) -> (tex: Texture, ok: bool) {
 
 destroy_texture :: proc(tex: Texture) {
 	if tex.impl != nil do _video_impl_destroy_texture(tex)
+}
+
+create_shader :: proc(desc: Shader_Desc) -> (s: Shader, ok: bool) {
+	s.impl = _video_impl_create_shader(desc) or_return
+	ok = true
+	return
+}
+
+destroy_shader :: proc(s: Shader) {
+	_video_impl_destroy_shader(s.impl)
 }

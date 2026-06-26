@@ -8,19 +8,13 @@ Vertex_Mode :: enum {
 	Lines,
 }
 
-Draw_Flag :: enum {SDF}
-Draw_Flags :: bit_set[Draw_Flag; u32]
-
-SDF_Params :: struct {
-	scale: f32,
-}
-
 Draw_State :: struct {
 	vertex_mode:  Vertex_Mode,
 	clip_rect:    Maybe(Rect),
 	scissor_rect: Maybe(Rect),
 	texture:      Maybe(Texture),
-	flags:        Draw_Flags,
+	vert_shader:  Shader,
+	frag_shader:  Shader,
 }
 
 Draw_Command :: struct {
@@ -186,23 +180,25 @@ draw_geometry :: proc(d: ^Drawlist, vertices: []Vertex, indices: []u32, state: D
 	d.cmd.index_count += auto_cast len(indices)
 }
 
-draw_quad_filled :: proc(d: ^Drawlist, positions: [4]Vec2, colors: [4]Color, uvs: [4]Vec2 = {}) {
+draw_quad_filled :: proc(d: ^Drawlist, positions: [4]Vec2, colors: [4]Color) {
 	vertices := [4]Vertex {
-		{pos = positions[0], uv = uvs[0], color = colors[0]},
-		{pos = positions[1], uv = uvs[1], color = colors[1]},
-		{pos = positions[2], uv = uvs[2], color = colors[2]},
-		{pos = positions[3], uv = uvs[3], color = colors[3]},
+		{pos = positions[0], color = colors[0]},
+		{pos = positions[1], color = colors[1]},
+		{pos = positions[2], color = colors[2]},
+		{pos = positions[3], color = colors[3]},
 	}
 
-	indices := [6]u32 {0, 1, 2, 2, 3, 0}
+	indices := [6]u32 {0, 1, 2, 0, 2, 3}
 
 	state := d.base_state
 	state.vertex_mode = .Triangles
+	state.vert_shader = SHADER_DEFAULT_VERT
+	state.frag_shader = SHADER_DEFAULT_FRAG
 
 	draw_geometry(d, vertices[:], indices[:], state)
 }
 
-draw_quad :: proc(d: ^Drawlist, positions: [4]Vec2, colors: [4]Color, uvs: [4]Vec2 = {}) {
+draw_quad :: proc(d: ^Drawlist, positions: [4]Vec2, colors: [4]Color) {
 	vertices := [4]Vertex {
 		{pos = positions[0], color = colors[0]},
 		{pos = positions[1], color = colors[1]},
@@ -214,11 +210,13 @@ draw_quad :: proc(d: ^Drawlist, positions: [4]Vec2, colors: [4]Color, uvs: [4]Ve
 
 	state := d.base_state
 	state.vertex_mode = .Lines
+	state.vert_shader = SHADER_DEFAULT_VERT
+	state.frag_shader = SHADER_DEFAULT_FRAG
 
 	draw_geometry(d, vertices[:], indices[:], state)
 }
 
-draw_rect :: proc(d: ^Drawlist, r: Rect, color: Color, uv: Rect = {}) {
+draw_rect :: proc(d: ^Drawlist, r: Rect, color: Color) {
 	draw_quad(d,
 		{
 			r.min,
@@ -226,17 +224,11 @@ draw_rect :: proc(d: ^Drawlist, r: Rect, color: Color, uv: Rect = {}) {
 			r.max,
 			{r.min.x, r.max.y},
 		},
-		{color, color, color, color},
-		{
-			uv.min,
-			{uv.max.x, uv.min.y},
-			uv.max,
-			{uv.min.x, uv.max.y}
-		}
+		color,
 	)
 }
 
-draw_rect_filled :: proc(d: ^Drawlist, r: Rect, color: Color, uv: Rect = {}) {
+draw_rect_filled :: proc(d: ^Drawlist, r: Rect, color: Color) {
 	draw_quad_filled(d,
 		{
 			r.min,
@@ -244,13 +236,7 @@ draw_rect_filled :: proc(d: ^Drawlist, r: Rect, color: Color, uv: Rect = {}) {
 			r.max,
 			{r.min.x, r.max.y},
 		},
-		{color, color, color, color},
-		{
-			uv.min,
-			{uv.max.x, uv.min.y},
-			uv.max,
-			{uv.min.x, uv.max.y}
-		}
+		color,
 	)
 }
 
@@ -264,6 +250,8 @@ draw_line :: proc(d: ^Drawlist, p1, p2: Vec2, color: Color) {
 
 	state := d.base_state
 	state.vertex_mode = .Lines
+	state.vert_shader = SHADER_DEFAULT_VERT
+	state.frag_shader = SHADER_DEFAULT_FRAG
 
 	draw_geometry(d, vertices[:], indices[:], state)
 }
@@ -277,6 +265,8 @@ draw_circle :: proc(d: ^Drawlist, center: Vec2, radius: f32, color: Color, segme
 
 	state := d.base_state
 	state.vertex_mode = .Lines
+	state.vert_shader = SHADER_DEFAULT_VERT
+	state.frag_shader = SHADER_DEFAULT_FRAG
 
 	m := 1.0 / f32(segments)
 
@@ -307,6 +297,8 @@ draw_circle_filled_multicolor :: proc(d: ^Drawlist, center: Vec2, radius: f32, e
 
 	state := d.base_state
 	state.vertex_mode = .Triangles
+	state.vert_shader = SHADER_DEFAULT_VERT
+	state.frag_shader = SHADER_DEFAULT_FRAG
 
 	m := 1.0 / f32(segments)
 
@@ -341,13 +333,15 @@ draw_text :: proc(d: ^Drawlist, text: string, position: Vec2, color: Color, wrap
 	pen := position
 	font := drawlist_get_font(d^)
 	scale := drawlist_calc_font_scale(d^)
+	state := d.base_state
 
-	old_state := d.base_state
-	defer d.base_state = old_state
+	state.vertex_mode = .Triangles
+	state.vert_shader = SHADER_DEFAULT_VERT
+	state.texture = font.texture
 
-	d.base_state.texture = font.texture
-	if font.mode == .SDF {
-		d.base_state.flags |= {.SDF}
+	switch font.mode {
+	case .SDF:    state.frag_shader = SHADER_SDF
+	case .Bitmap: state.frag_shader = SHADER_TEXTURE_FRAG
 	}
 
 	for codepoint in text {
@@ -366,11 +360,21 @@ draw_text :: proc(d: ^Drawlist, text: string, position: Vec2, color: Color, wrap
 		defer pen.x += glyph.advance * scale
 		if glyph.width <= 0 do continue
 
-		rect: Rect
-		rect.min = pen + {f32(glyph.xoff), f32(glyph.yoff)} * scale
-		rect.max = rect.min + {f32(glyph.width), f32(glyph.height)} * scale
+		pmin := pen + {f32(glyph.xoff), f32(glyph.yoff)} * scale
+		pmax := pmin + {f32(glyph.width), f32(glyph.height)} * scale
+		umin := glyph.uv.min
+		umax := glyph.uv.max
 
-		draw_rect_filled(d, rect, color, glyph.uv)
+		//draw_rect_filled(d, rect, color)
+		vertices := []Vertex {
+			{pos = pmin,             uv = umin,             color = color},
+			{pos = {pmax.x, pmin.y}, uv = {umax.x, umin.y}, color = color},
+			{pos = pmax,             uv = umax,             color = color},
+			{pos = {pmin.x, pmax.y}, uv = {umin.x, umax.y}, color = color},
+		}
+		indices := []u32 {0, 1, 2, 0, 2, 3}
+
+		draw_geometry(d, vertices, indices, state)
 	}
 }
 
@@ -402,17 +406,13 @@ drawlist_calc_text_size :: proc(d: ^Drawlist, text: string) -> Vec2 {
 
 draw_box_filled :: proc(d: ^Drawlist, center: Vec2, size: Vec2, rot: Rot, color: Color, uv: Rect = {}) {
 	hs := size * 0.5
+	r := rot_to_mat2(rot)
 	draw_quad_filled(d, {
-		center + vec2_rotate(-hs, rot),
-		center + vec2_rotate({hs.x, -hs.y}, rot),
-		center + vec2_rotate(hs, rot),
-		center + vec2_rotate({-hs.x, hs.y}, rot),
-	}, {color, color, color, color}, {
-		uv.min,
-		{uv.max.x, uv.min.y},
-		uv.max,
-		{uv.min.x, uv.max.y}
-	})
+		center + r * -hs,
+		center + r * Vec2{hs.x, -hs.y},
+		center + r * hs,
+		center + r * Vec2{-hs.x, hs.y},
+	}, color)
 }
 
 // Automatically tiles a sprite across a rectangle. Assumes the rectangles size is divisible by
@@ -427,6 +427,8 @@ draw_texture_auto_tiled :: proc(d: ^Drawlist, rect: Rect, color: Color, tile_siz
 
 	state.texture = texture
 	state.vertex_mode = .Triangles
+	state.vert_shader = SHADER_DEFAULT_VERT
+	state.frag_shader = SHADER_TEXTURE_FRAG
 
 	d.base_state = state
 	defer d.base_state = old_state
@@ -436,8 +438,8 @@ draw_texture_auto_tiled :: proc(d: ^Drawlist, rect: Rect, color: Color, tile_siz
 
 	for y in 0..<y_count {
 		for x in 0..<x_count {
-			offset := Vec2{f32(x), f32(y)} * tile_size
-			draw_rect_filled(d, {rect.min + offset, rect.min + offset + tile_size}, color, uv)
+			//offset := Vec2{f32(x), f32(y)} * tile_size
+			//draw_rect_filled(d, {rect.min + offset, rect.min + offset + tile_size}, color)
 		}
 	}
 }
@@ -472,7 +474,7 @@ draw_texture_auto_tiled :: proc(d: ^Drawlist, rect: Rect, color: Color, tile_siz
 
 // `source` is the rect of the sprite within the texture described in pixels
 draw_sprite :: proc(
-	d: ^Drawlist, texture: Texture, position: Vec2, rotation: Rot = {0, 1}, source: Maybe(Rect) = nil, tint: Color = COLOR_WHITE, scale: f32 = 1,
+	d: ^Drawlist, texture: Texture, pos: Vec2, rotation: Rot = ROT_IDENTITY, source: Maybe(Rect) = nil, tint: Color = COLOR_WHITE, scale: f32 = 1,
 ) {
 	tex_size := Vec2{f32(texture.width), f32(texture.height)}
 	r := source.? or_else Rect{{0, 0}, tex_size}
@@ -482,8 +484,24 @@ draw_sprite :: proc(
 	r.min /= tex_size
 	r.max /= tex_size
 
+	state := d.base_state
+	state.vertex_mode = .Triangles
+	state.vert_shader = SHADER_DEFAULT_VERT
+	state.frag_shader = SHADER_TEXTURE_FRAG
+	state.texture     = texture
 
-	drawlist_set_scope_texture(d, texture)
-	draw_box_filled(d, position, sprite_size * scale, rotation, tint, r)
+	rmat := rot_to_mat2(rotation)
+	hs := sprite_size * 0.5 * scale
+
+	vertices := []Vertex {
+		{pos = pos + rmat * -hs,               uv = r.min,              color = tint},
+		{pos = pos + rmat * Vec2{hs.x, -hs.y}, uv = {r.max.x, r.min.y}, color = tint},
+		{pos = pos + rmat * hs,                uv = r.max,              color = tint},
+		{pos = pos + rmat * Vec2{-hs.x, hs.y}, uv = {r.min.x, r.max.y}, color = tint},
+	}
+
+	indices := []u32 {0, 1, 2, 0, 2, 3}
+
+	draw_geometry(d, vertices, indices, state)
 }
 
