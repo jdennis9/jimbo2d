@@ -6,9 +6,9 @@ Currently has:
  - Draw lists for grouping draw commands
  - Font rendering
  - Loading/creating textures
- - Microui rendering
 
 Uses GLFW and OpenGL 3 for now, but more platforms and rendering backends will be supported.
 
 Working on:
  - Audio support
+ - Custom shaders
