@@ -18,7 +18,7 @@ Init_Params :: struct {
 	window_height:        int,
 	window_title:         string,
 	frame_allocator_size: Maybe(int),
-	microui_context:      Maybe(^mu.Context),
+	custom_platform:      Maybe(Platform_Interface),
 }
 
 @(private="file")
@@ -43,9 +43,20 @@ init :: proc(
 
 	mem.scratch_init(&state.frame_allocator, params.frame_allocator_size.? or_else DEFAULT_FRAME_ALLOCATOR_SIZE, allocator)
 
-	platform_use_glfw()
+	if params.custom_platform != nil {
+		_platform = params.custom_platform.?
+	}
+	else {
+		use_platform_glfw()
+	}
 
-	_platform_impl_create_window() or_return
+	assert(_platform.get_info != nil)
+	assert(_platform.create_window != nil)
+	assert(_platform.destroy_window != nil)
+	assert(_platform.poll_events != nil)
+	assert(_platform.present != nil)
+
+	_platform.create_window() or_return
 
 	state.window_size.x = f32(params.window_width)
 	state.window_size.y = f32(params.window_height)
@@ -62,18 +73,18 @@ init :: proc(
 }
 
 shutdown :: proc() {
-	_platform_impl_destroy_window()
+	_platform.destroy_window()
 	mem.scratch_destroy(&state.frame_allocator)
 }
 
 present :: proc() {
 	drawlist_flush(&state.drawlist)
-	_video_impl_render_frame(&state.drawlist)
-	_platform_impl_present()
+	_video.render_frame(&state.drawlist)
+	_platform.present()
 }
 
 clear_window :: proc(color: Color) {
-	_video_impl_clear(color)
+	_video.clear(color)
 }
 
 update :: proc() -> bool {
@@ -92,7 +103,7 @@ update :: proc() -> bool {
 	_input_pre_update()
 	drawlist_clear(&state.drawlist)
 	mem.scratch_free_all(&state.frame_allocator)
-	_platform_impl_poll_events()
+	_platform.poll_events()
 
 	return true
 }

@@ -26,8 +26,7 @@ Video_Impl_Data_OpenGL :: struct {
 @(private="file")
 _gl: Video_Impl_Data_OpenGL
 
-@private
-_video_init_opengl :: proc(
+opengl_init :: proc(
 	set_proc_address: gl.Set_Proc_Address_Type,
 ) -> bool {
 	log.debug("Loading OpenGL 3.3")
@@ -35,17 +34,17 @@ _video_init_opengl :: proc(
 	gl.load_up_to(3, 3, set_proc_address)
 	gl.GenVertexArrays(1, &_gl.vao)
 
-	_video_impl_create_texture  = _create_texture
-	_video_impl_destroy_texture = _destroy_texture
-	_video_impl_create_shader   = _create_shader
-	_video_impl_destroy_shader  = _destroy_shader
+	_video.create_texture  = _create_texture
+	_video.destroy_texture = _destroy_texture
+	_video.create_shader   = _create_shader
+	_video.destroy_shader  = _destroy_shader
 
-	_video_impl_clear = proc(color: Color) {
+	_video.clear = proc(color: Color) {
 		gl.ClearColor(f32(color.r) / 255.0, f32(color.g) / 255.0, f32(color.b) / 255.0, f32(color.a) / 255.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 	}
 
-	_video_impl_get_info = proc() -> Video_Impl_Info {
+	_video.get_info = proc() -> Video_Impl_Info {
 		return {
 			name = "opengl3",
 			data = &_gl,
@@ -53,7 +52,7 @@ _video_init_opengl :: proc(
 		}
 	}
 
-	_video_impl_render_frame = _render_frame
+	_video.render_frame = _render_frame
 
 	log.debug("OpenGL ready")
 

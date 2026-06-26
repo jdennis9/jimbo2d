@@ -98,11 +98,13 @@ GLFW_KEY_TO_NATIVE := [glfw.KEY_LAST+1]Key {
 }
 
 @private
-platform_use_glfw :: proc() {
-	glfw.Init()
+use_platform_glfw :: proc() -> bool {
+	glfw.Init() or_return
 
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 3)
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 0)
+
+	iface: Platform_Interface
 	
 	_key_proc :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
 		if action == glfw.PRESS do send_key_down(_map_key(key))
@@ -119,7 +121,7 @@ platform_use_glfw :: proc() {
 		else if action == glfw.RELEASE do send_mouse_up(butt)
 	}
 	
-	_platform_impl_get_info = proc() -> Platform_Impl_Info {
+	iface.get_info = proc() -> Platform_Impl_Info {
 		return {
 			name      = "glfw",
 			data      = &_glfw,
@@ -127,14 +129,13 @@ platform_use_glfw :: proc() {
 		}
 	}
 
-	_platform_impl_create_window = proc() -> bool {
+	iface.create_window = proc() -> bool {
 		ip := get_init_params()
 		
 		_glfw.window = glfw.CreateWindow(
 			auto_cast ip.window_width, auto_cast ip.window_height, strings.clone_to_cstring(ip.window_title, frame_allocator()),
 			nil, nil
 		)
-		
 		
 		if _glfw.window == nil do return false
 		
@@ -145,35 +146,39 @@ platform_use_glfw :: proc() {
 		glfw.MakeContextCurrent(_glfw.window)
 		glfw.SwapInterval(1)
 
-		_video_init_opengl(glfw.gl_set_proc_address)
+		opengl_init(glfw.gl_set_proc_address)
 		return true
 	}
 
-	_platform_impl_destroy_window = proc() {
+	iface.destroy_window = proc() {
 		if _glfw.window != nil {
 			glfw.DestroyWindow(_glfw.window)
-			_video_impl_shutdown()
+			_video.shutdown()
 		}
 	}
 
-	_platform_impl_poll_events = proc() {
+	iface.poll_events = proc() {
 		glfw.PollEvents()
 	}
 
-	_platform_impl_present = proc() {
+	iface.present = proc() {
 		glfw.SwapBuffers(_glfw.window)
 	}
 
-	_platform_impl_set_clipboard_text = proc(text: string) -> bool {
+	iface.set_clipboard_text = proc(text: string) -> bool {
 		if _glfw.window == nil do return false
 		glfw.SetClipboardString(_glfw.window, strings.clone_to_cstring(text, frame_allocator()))
 		return true
 	}
 
-	_platform_impl_get_clipboard_text = proc() -> string {
+	iface.get_clipboard_text = proc() -> string {
 		if _glfw.window == nil do return ""
 		return string(glfw.GetClipboardString(_glfw.window))
 	}
+
+	_platform = iface
+
+	return true
 }
 
 @(private="file")

@@ -15,7 +15,7 @@ run :: proc() -> bool {
 	j2.init({
 		window_width  = 1920,
 		window_height = 1080,
-		window_title  = "Jimbo2D",
+		window_title  = "J2D Render Test",
 	}) or_return
 	defer j2.shutdown()
 

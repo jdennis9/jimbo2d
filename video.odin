@@ -13,6 +13,20 @@ Video_Impl_Info :: struct {
 	data_type: typeid,
 }
 
+Video_Interface :: struct {
+	get_info:        proc() -> Video_Impl_Info,
+	shutdown:        proc(),
+	create_texture:  proc(desc: Texture_Desc) -> (rawptr, bool),
+	destroy_texture: proc(tex: Texture),
+	create_shader:   proc(desc: Shader_Desc) -> (rawptr, bool),
+	destroy_shader:  proc(impl: rawptr),
+	clear:           proc(color: Color),
+	render_frame:    proc(drawlist: ^Drawlist),
+}
+
+@private
+_video: Video_Interface
+
 Texture_Format :: enum {
 	R8G8B8A8,
 	R8,
@@ -60,9 +74,22 @@ Vertex :: struct {
 	color: Color,
 }
 
+// Must be called during platform create_window() proc
+use_custom_video_interface :: proc(v: Video_Interface) {
+	assert(v.get_info != nil)
+	assert(v.clear != nil)
+	assert(v.render_frame != nil)
+	assert(v.shutdown != nil)
+	assert(v.create_shader != nil)
+	assert(v.destroy_shader != nil)
+	assert(v.create_texture != nil)
+	assert(v.destroy_texture != nil)
+	_video = v
+}
+
 get_video_impl_info :: proc() -> Video_Impl_Info {
-	if _video_impl_get_info != nil {
-		return _video_impl_get_info()
+	if _video.get_info != nil {
+		return _video.get_info()
 	}
 
 	return {}
@@ -115,7 +142,7 @@ create_texture_from_image :: proc(img: ^image.Image) -> (tex: Texture, ok: bool)
 }
 
 create_texture :: proc(desc: Texture_Desc) -> (tex: Texture, ok: bool) {
-	tex.impl   = _video_impl_create_texture(desc) or_return
+	tex.impl   = _video.create_texture(desc) or_return
 	tex.width  = desc.width
 	tex.height = desc.height
 
@@ -124,15 +151,15 @@ create_texture :: proc(desc: Texture_Desc) -> (tex: Texture, ok: bool) {
 }
 
 destroy_texture :: proc(tex: Texture) {
-	if tex.impl != nil do _video_impl_destroy_texture(tex)
+	if tex.impl != nil do _video.destroy_texture(tex)
 }
 
 create_shader :: proc(desc: Shader_Desc) -> (s: Shader, ok: bool) {
-	s.impl = _video_impl_create_shader(desc) or_return
+	s.impl = _video.create_shader(desc) or_return
 	ok = true
 	return
 }
 
 destroy_shader :: proc(s: Shader) {
-	_video_impl_destroy_shader(s.impl)
+	_video.destroy_shader(s.impl)
 }
