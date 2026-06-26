@@ -13,12 +13,20 @@ DEFAULT_FONT_DATA :: #load("NotoSans-SemiBold.ttf")
 
 DEFAULT_FRAME_ALLOCATOR_SIZE :: (128<<10)
 
+Hooks :: struct {
+	handle_platform_event: proc(data: rawptr, type: typeid),
+	on_create_window: proc(), // Called AFTER window is created
+	on_destroy_window: proc(), // Called BEFORE window is destroyed
+	post_render: proc(), // Called after all rendering is done but before its presented to the window
+}
+
 Init_Params :: struct {
 	window_width:         int,
 	window_height:        int,
 	window_title:         string,
 	frame_allocator_size: Maybe(int),
 	custom_platform:      Maybe(Platform_Interface),
+	hooks:                Hooks,
 }
 
 @(private="file")
@@ -56,7 +64,7 @@ init :: proc(
 	assert(_platform.poll_events != nil)
 	assert(_platform.present != nil)
 
-	_platform.create_window() or_return
+	platform_create_window() or_return
 
 	state.window_size.x = f32(params.window_width)
 	state.window_size.y = f32(params.window_height)
@@ -73,7 +81,7 @@ init :: proc(
 }
 
 shutdown :: proc() {
-	_platform.destroy_window()
+	platform_destroy_window()
 	mem.scratch_destroy(&state.frame_allocator)
 }
 
@@ -125,9 +133,23 @@ get_window_size :: proc "contextless" () -> Vec2 {return state.window_size}
 get_main_drawlist :: proc "contextless" () -> ^Drawlist {return &state.drawlist}
 get_context :: proc "contextless" () -> runtime.Context {return state.ctx}
 get_init_params :: proc "contextless" () -> Init_Params {return state.init_params}
+get_hooks :: proc "contextless" () -> Hooks {return state.init_params.hooks}
 
 sine_pulse :: proc(vmin, vmax, freq: f32, offset: f64 = 0) -> f32 {
 	x := time.duration_seconds(time.tick_diff({}, state.last_frame_start))
 	y := f32(linalg.sin((x * f64(freq)) + offset))
 	return linalg.lerp(vmin, vmax, y)
+}
+
+send_platform_event :: proc(data: rawptr, type: typeid) {
+	hooks := state.init_params.hooks
+
+	if hooks.handle_platform_event != nil {
+		hooks.handle_platform_event(data, type)
+	}
+}
+
+call_post_render_hook :: proc() {
+	hooks := get_hooks()
+	if hooks.post_render != nil do hooks.post_render()
 }

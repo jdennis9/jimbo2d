@@ -24,6 +24,9 @@ Video_Interface :: struct {
 	render_frame:    proc(drawlist: ^Drawlist),
 }
 
+// Present video backend names
+VIDEO_IMPL_NAME_OPENGL3 :: "opengl3"
+
 @private
 _video: Video_Interface
 

@@ -16,6 +16,9 @@ Platform_Interface :: struct {
 	get_clipboard_text: proc() -> string, // optional
 }
 
+// Preset platform names
+PLATFORM_NAME_GLFW :: "glfw"
+
 @private
 _platform: Platform_Interface
 
@@ -35,4 +38,19 @@ get_platform_info :: proc() -> Platform_Impl_Info {
 	}
 
 	return {}
+}
+
+@private
+platform_create_window :: proc() -> bool {
+	hooks := get_hooks()
+	ok := _platform.create_window()
+	if hooks.on_create_window != nil do hooks.on_create_window()
+	return ok
+}
+
+@private
+platform_destroy_window :: proc() {
+	hooks := get_hooks()
+	if hooks.on_destroy_window != nil do hooks.on_destroy_window()
+	_platform.destroy_window()
 }

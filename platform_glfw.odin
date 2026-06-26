@@ -123,7 +123,7 @@ use_platform_glfw :: proc() -> bool {
 	
 	iface.get_info = proc() -> Platform_Impl_Info {
 		return {
-			name      = "glfw",
+			name      = PLATFORM_NAME_GLFW,
 			data      = &_glfw,
 			data_type = Platform_Impl_Data_GLFW,
 		}

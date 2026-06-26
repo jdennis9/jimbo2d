@@ -46,8 +46,8 @@ opengl_init :: proc(
 
 	_video.get_info = proc() -> Video_Impl_Info {
 		return {
-			name = "opengl3",
-			data = &_gl,
+			name      = VIDEO_IMPL_NAME_OPENGL3,
+			data      = &_gl,
 			data_type = Video_Impl_Data_OpenGL,
 		}
 	}
@@ -296,6 +296,8 @@ _render_frame :: proc(drawlist: ^Drawlist) {
 			gl.BindTexture(gl.TEXTURE_2D, 0)
 		}
 	}
+
+	call_post_render_hook()
 }
 
 @(private="file")
