@@ -314,6 +314,7 @@ layout(location = 0) in vec2 in_position;
 layout(location = 1) in vec2 in_uv;
 layout(location = 2) in vec4 in_color;
 
+out vec2 vertex_position;
 out vec4 vertex_color;
 out vec2 vertex_uv;
 
@@ -324,6 +325,7 @@ void main() {
 	gl_Position.y = -gl_Position.y;
 	gl_Position.z = 0;
 	gl_Position.w = 1;
+	vertex_position = in_position * viewport_scale;
 	vertex_color = in_color;
 	vertex_uv = in_uv;
 }

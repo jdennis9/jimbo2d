@@ -34,6 +34,11 @@ Drawlist :: struct {
 	font_scale:       Maybe(f32),
 	target_font_size: Maybe(f32),
 	name:             string,
+
+	overrides: struct {
+		vert_shader: Maybe(Shader),
+		frag_shader: Maybe(Shader),
+	},
 }
 
 drawlist_clear :: proc(d: ^Drawlist) {
@@ -43,6 +48,7 @@ drawlist_clear :: proc(d: ^Drawlist) {
 	d.cmd = {}
 	d.font = nil
 	d.camera = {}
+	d.overrides = {}
 }
 
 drawlist_flush :: proc(d: ^Drawlist) {
@@ -155,10 +161,18 @@ _drawlist_set_scope_clip_rect_exit :: proc(d: ^Drawlist, _: Rect, old_value: May
 	d.base_state.clip_rect = old_value
 }
 
+// -----------------------------------------------------------------------------
+// All drawing procs eventually end up here
+// -----------------------------------------------------------------------------
 draw_geometry :: proc(d: ^Drawlist, vertices: []Vertex, indices: []u32, state: Draw_State) {
 	if d.cmd.state != state do drawlist_flush(d)
 
 	d.cmd.state = state
+
+	// Apply overrides
+	d.cmd.state.vert_shader = d.overrides.vert_shader.? or_else d.cmd.state.vert_shader
+	d.cmd.state.frag_shader = d.overrides.frag_shader.? or_else d.cmd.state.frag_shader
+
 	index_offset := u32(len(d.vertices))
 
 	if d.camera[0,0] == 0 {

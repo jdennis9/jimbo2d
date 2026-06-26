@@ -1,5 +1,6 @@
 package j2d_test
 
+import "core:math/linalg"
 import "core:log"
 import j2 "../.."
 
@@ -17,6 +18,11 @@ run :: proc() -> bool {
 		window_title  = "Jimbo2D",
 	}) or_return
 	defer j2.shutdown()
+
+	shader := j2.create_shader({
+		stage = .Fragment,
+		glsl = MY_CUSTOM_SHADER
+	}) or_return
 
 	smiley := j2.load_texture_from_memory(#load("smiley.png")) or_return
 
@@ -45,6 +51,13 @@ run :: proc() -> bool {
 		j2.draw_sprite(dl, smiley, {800, 800}, scale = 2)
 		j2.draw_sprite(dl, smiley, {1200, 800}, scale = 0.5)
 
+		// Custom shader override
+		{
+			pos := j2.get_mouse_pos()
+			dl.overrides.frag_shader = shader
+			j2.draw_rect_filled(dl, {pos, pos + {100, 100}}, j2.COLOR_RED)
+		}
+
 		j2.present()
 	}
 
@@ -54,3 +67,18 @@ run :: proc() -> bool {
 main :: proc() {
 	run()
 }
+
+MY_CUSTOM_SHADER :: `
+#version 330
+
+layout(location=0) out vec4 out_color;
+
+in vec2 vertex_position;
+
+void main() {
+	out_color.a = 1;
+	out_color.r = vertex_position.x;
+	out_color.g = vertex_position.y;
+}
+
+`

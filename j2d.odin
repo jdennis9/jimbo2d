@@ -1,5 +1,7 @@
 package j2d
 
+import "core:math/linalg"
+import "core:sys/linux"
 import mu "vendor:microui"
 import "core:time"
 import "core:image"
@@ -85,6 +87,7 @@ update :: proc() -> bool {
 	state.frame_count += 1
 
 	frame_start := time.tick_now()
+	state.last_frame_start = frame_start
 
 	_input_pre_update()
 	drawlist_clear(&state.drawlist)
@@ -111,3 +114,9 @@ get_window_size :: proc "contextless" () -> Vec2 {return state.window_size}
 get_main_drawlist :: proc "contextless" () -> ^Drawlist {return &state.drawlist}
 get_context :: proc "contextless" () -> runtime.Context {return state.ctx}
 get_init_params :: proc "contextless" () -> Init_Params {return state.init_params}
+
+sine_pulse :: proc(vmin, vmax, freq: f32, offset: f64 = 0) -> f32 {
+	x := time.duration_seconds(time.tick_diff({}, state.last_frame_start))
+	y := f32(linalg.sin((x * f64(freq)) + offset))
+	return linalg.lerp(vmin, vmax, y)
+}
