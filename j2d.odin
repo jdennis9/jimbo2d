@@ -30,7 +30,6 @@ state: struct {
 	last_frame_start: time.Tick,
 	last_frame_time:  time.Duration,
 	frame_count:      int,
-	microui:          Maybe(^mu.Context),
 }
 
 init :: proc(
@@ -54,11 +53,6 @@ init :: proc(
 	reserve(&state.drawlist.commands, 128)
 	reserve(&state.drawlist.indices, 16<<10)
 	reserve(&state.drawlist.vertices, 16<<10)
-	
-	if params.microui_context != nil {
-		state.microui = params.microui_context.?
-		microui_init(params.microui_context.?)
-	}
 
 	return true
 }
@@ -69,10 +63,6 @@ shutdown :: proc() {
 }
 
 present :: proc() {
-	if is_microui_enabled() {
-		microui_draw(state.microui.?, &state.drawlist)
-	}
-
 	drawlist_flush(&state.drawlist)
 	_video_impl_render_frame(&state.drawlist)
 	_platform_impl_present()
@@ -119,5 +109,3 @@ get_window_size :: proc "contextless" () -> Vec2 {return state.window_size}
 get_main_drawlist :: proc "contextless" () -> ^Drawlist {return &state.drawlist}
 get_context :: proc "contextless" () -> runtime.Context {return state.ctx}
 get_init_params :: proc "contextless" () -> Init_Params {return state.init_params}
-is_microui_enabled :: proc "contextless" () -> bool {return state.microui != nil}
-get_microui_context :: proc "contextless" () -> ^mu.Context {return state.microui.? or_else nil}
