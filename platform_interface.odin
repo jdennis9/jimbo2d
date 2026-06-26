@@ -1,6 +1,7 @@
 #+private
 package j2d
 
+_platform_impl_get_info: proc() -> Platform_Impl_Info
 // Also initializes video backend
 _platform_impl_create_window: proc() -> bool
 _platform_impl_destroy_window: proc()

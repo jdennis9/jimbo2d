@@ -1,14 +1,16 @@
-#+private file
 package j2d
 
 import "core:strings"
 import "vendor:glfw"
 
-_glfw: struct {
+Platform_Impl_Data_GLFW :: struct {
 	window: glfw.WindowHandle,
 }
 
-_KEY_MAP := [glfw.KEY_LAST+1]Key {
+@(private="file")
+_glfw: Platform_Impl_Data_GLFW
+
+GLFW_KEY_TO_NATIVE := [glfw.KEY_LAST+1]Key {
 	glfw.KEY_1             = ._1,
 	glfw.KEY_2             = ._2,
 	glfw.KEY_3             = ._3,
@@ -117,6 +119,14 @@ platform_use_glfw :: proc() {
 		else if action == glfw.RELEASE do send_mouse_up(butt)
 	}
 	
+	_platform_impl_get_info = proc() -> Platform_Impl_Info {
+		return {
+			name      = "glfw",
+			data      = &_glfw,
+			data_type = Platform_Impl_Data_GLFW,
+		}
+	}
+
 	_platform_impl_create_window = proc() -> bool {
 		ip := get_init_params()
 		
@@ -166,11 +176,13 @@ platform_use_glfw :: proc() {
 	}
 }
 
+@(private="file")
 _map_key :: proc "contextless" (k: i32) -> Key {
-	if k >= len(_KEY_MAP) || k < 0 do return .Unknown
-	return _KEY_MAP[k]
+	if k >= len(GLFW_KEY_TO_NATIVE) || k < 0 do return .Unknown
+	return GLFW_KEY_TO_NATIVE[k]
 }
 
+@(private="file")
 _map_mouse_button :: proc "contextless" (b: i32) -> Mouse_Button {
 	switch b {
 	case glfw.MOUSE_BUTTON_LEFT: return .Left

@@ -1,7 +1,7 @@
 package j2d_test
 
 import "core:log"
-import j2 ".."
+import j2 "../.."
 
 vec2 :: [2]f32
 

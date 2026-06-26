@@ -1,6 +1,7 @@
 #+private
 package j2d
 
+_video_impl_get_info: proc() -> Video_Impl_Info
 _video_impl_shutdown: proc()
 _video_impl_create_texture: proc(desc: Texture_Desc) -> (rawptr, bool)
 _video_impl_destroy_texture: proc(tex: Texture)

@@ -7,6 +7,12 @@ import "core:image/bmp"
 import "core:image/jpeg"
 import "core:image/tga"
 
+Video_Impl_Info :: struct {
+	name:      string,
+	data:      rawptr,
+	data_type: typeid,
+}
+
 Texture_Format :: enum {
 	R8G8B8A8,
 	R8,
@@ -46,6 +52,14 @@ Vertex :: struct {
 	pos:   Vec2,
 	uv:    Vec2,
 	color: Color,
+}
+
+get_video_impl_info :: proc() -> Video_Impl_Info {
+	if _video_impl_get_info != nil {
+		return _video_impl_get_info()
+	}
+
+	return {}
 }
 
 load_texture_from_memory :: proc(bytes: []byte) -> (tex: Texture, ok: bool) {

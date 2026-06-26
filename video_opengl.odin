@@ -1,28 +1,34 @@
-#+private file
 package j2d
 
 import "core:log"
 import gl "vendor:OpenGL"
 
-_Program_Key :: struct {vert_shader, frag_shader: u32}
+GL_Program_Key :: struct {vert_shader, frag_shader: u32}
 
-_Texture :: struct {
+GL_Texture :: struct {
 	gl_handle: u32,
 	bind_enum: i32,
 }
 
-_gl: struct {
+GL_Shader :: struct {
+	gl_handle: u32,
+}
+
+Video_Impl_Data_OpenGL :: struct {
 	shader_default_vert: u32,
 	shader_color_frag:   u32,
 	shader_texture_frag: u32,
 	shader_sdf_frag:     u32,
 	vao:                 u32,
-	programs:            map[_Program_Key]u32,
+	programs:            map[GL_Program_Key]u32,
 	vertex_buffer:       u32,
 	index_buffer:        u32,
 	vertex_buffer_size:  int,
 	index_buffer_size:   int,
 }
+
+@(private="file")
+_gl: Video_Impl_Data_OpenGL
 
 @private
 _video_init_opengl :: proc(
@@ -45,10 +51,10 @@ _video_init_opengl :: proc(
 		return
 	}
 
-	_gl.shader_default_vert = load_shader(_SHADER_DEFAULT_VERT, .VERTEX_SHADER) or_return
-	_gl.shader_color_frag   = load_shader(_SHADER_COLOR_FRAG, .FRAGMENT_SHADER) or_return
-	_gl.shader_texture_frag = load_shader(_SHADER_TEXTURE_FRAG, .FRAGMENT_SHADER) or_return
-	_gl.shader_sdf_frag     = load_shader(_SHADER_SDF_FRAG, .FRAGMENT_SHADER) or_return
+	_gl.shader_default_vert = load_shader(GL_SHADER_DEFAULT_VERT, .VERTEX_SHADER) or_return
+	_gl.shader_color_frag   = load_shader(GL_SHADER_COLOR_FRAG, .FRAGMENT_SHADER) or_return
+	_gl.shader_texture_frag = load_shader(GL_SHADER_TEXTURE_FRAG, .FRAGMENT_SHADER) or_return
+	_gl.shader_sdf_frag     = load_shader(GL_SHADER_SDF_FRAG, .FRAGMENT_SHADER) or_return
 
 	_video_impl_create_texture = _create_texture
 	_video_impl_destroy_texture = _destroy_texture
@@ -58,6 +64,14 @@ _video_init_opengl :: proc(
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 	}
 
+	_video_impl_get_info = proc() -> Video_Impl_Info {
+		return {
+			name = "opengl3",
+			data = &_gl,
+			data_type = Video_Impl_Data_OpenGL,
+		}
+	}
+
 	_video_impl_render_frame = _render_frame
 
 	log.debug("OpenGL ready")
@@ -65,8 +79,9 @@ _video_init_opengl :: proc(
 	return true
 }
 
+@(private="file")
 _create_texture :: proc(desc: Texture_Desc) -> (tex_ptr: rawptr, ok: bool) {
-	tex := new(_Texture)
+	tex := new(GL_Texture)
 	defer if !ok do free(tex)
 	// For texture data with pitch not aligned to 4 bytes
 	pix_buf: [dynamic]u8
@@ -136,15 +151,17 @@ _create_texture :: proc(desc: Texture_Desc) -> (tex_ptr: rawptr, ok: bool) {
 	return
 }
 
+@(private="file")
 _destroy_texture :: proc(tex: Texture) {
-	tex := cast(^_Texture) tex.impl
+	tex := cast(^GL_Texture) tex.impl
 	gl.DeleteTextures(1, &tex.gl_handle)
 }
 
+@(private="file")
 _render_frame :: proc(drawlist: ^Drawlist) {
 	display_size := get_window_size()
 
-	select_shaders :: proc(s: Draw_State) -> (key: _Program_Key, ok: bool) {
+	select_shaders :: proc(s: Draw_State) -> (key: GL_Program_Key, ok: bool) {
 		ok = true
 		key.vert_shader = _gl.shader_default_vert
 		if s.texture == nil {
@@ -248,7 +265,7 @@ _render_frame :: proc(drawlist: ^Drawlist) {
 
 		// Bind texture
 		if cmd.state.texture != nil {
-			tex := cast(^_Texture) cmd.state.texture.?.impl
+			tex := cast(^GL_Texture) cmd.state.texture.?.impl
 			if tex != nil {
 				gl.ActiveTexture(gl.TEXTURE0)
 				gl.BindTexture(gl.TEXTURE_2D, tex.gl_handle)
@@ -276,7 +293,7 @@ _render_frame :: proc(drawlist: ^Drawlist) {
 	}
 }
 
-_SHADER_DEFAULT_VERT ::
+GL_SHADER_DEFAULT_VERT ::
 `
 #version 330 core
 
@@ -299,7 +316,7 @@ void main() {
 }
 `
 
-_SHADER_COLOR_FRAG ::
+GL_SHADER_COLOR_FRAG ::
 `
 #version 330 core
 
@@ -312,7 +329,7 @@ void main() {
 }
 `
 
-_SHADER_TEXTURE_FRAG ::
+GL_SHADER_TEXTURE_FRAG ::
 `
 #version 330 core
 
@@ -328,7 +345,7 @@ void main() {
 }
 `
 
-_SHADER_SDF_FRAG ::
+GL_SHADER_SDF_FRAG ::
 `
 #version 330 core
 
