@@ -77,6 +77,10 @@ init :: proc(
 
 	load_builtin_shaders() or_return
 
+	when ODIN_OS == .Windows {
+		use_gamepad_impl_gameinput() or_return
+	}
+
 	return true
 }
 
@@ -112,6 +116,7 @@ update :: proc() -> bool {
 	drawlist_clear(&state.drawlist)
 	mem.scratch_free_all(&state.frame_allocator)
 	_platform.poll_events()
+	_gamepad.update()
 
 	return true
 }

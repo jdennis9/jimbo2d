@@ -44,7 +44,7 @@ opengl_init :: proc(
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 	}
 
-	_video.get_info = proc() -> Video_Impl_Info {
+	_video.get_info = proc() -> Interface_Info {
 		return {
 			name      = VIDEO_IMPL_NAME_OPENGL3,
 			data      = &_gl,

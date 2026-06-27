@@ -17,3 +17,9 @@ COLOR_BLACK :: Color{0, 0, 0, 255}
 COLOR_RED   :: Color{255, 0, 0, 255}
 COLOR_GREEN :: Color{0, 255, 0, 255}
 COLOR_BLUE  :: Color{0, 0, 255, 255}
+
+Interface_Info :: struct {
+	name:      string,
+	data:      rawptr,
+	data_type: typeid,
+}

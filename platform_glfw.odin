@@ -121,7 +121,7 @@ use_platform_glfw :: proc() -> bool {
 		else if action == glfw.RELEASE do send_mouse_up(butt)
 	}
 	
-	iface.get_info = proc() -> Platform_Impl_Info {
+	iface.get_info = proc() -> Interface_Info {
 		return {
 			name      = PLATFORM_NAME_GLFW,
 			data      = &_glfw,

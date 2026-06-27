@@ -7,14 +7,8 @@ import "core:image/bmp"
 import "core:image/jpeg"
 import "core:image/tga"
 
-Video_Impl_Info :: struct {
-	name:      string,
-	data:      rawptr,
-	data_type: typeid,
-}
-
 Video_Interface :: struct {
-	get_info:        proc() -> Video_Impl_Info,
+	get_info:        proc() -> Interface_Info,
 	shutdown:        proc(),
 	create_texture:  proc(desc: Texture_Desc) -> (rawptr, bool),
 	destroy_texture: proc(tex: Texture),
@@ -90,7 +84,7 @@ use_custom_video_interface :: proc(v: Video_Interface) {
 	_video = v
 }
 
-get_video_impl_info :: proc() -> Video_Impl_Info {
+get_video_impl_info :: proc() -> Interface_Info {
 	if _video.get_info != nil {
 		return _video.get_info()
 	}
