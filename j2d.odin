@@ -80,6 +80,9 @@ init :: proc(
 	when ODIN_OS == .Windows {
 		use_gamepad_impl_gameinput() or_return
 	}
+	else {
+		use_gamepad_interface(GAMEPAD_IMPL_NULL)
+	}
 
 	return true
 }

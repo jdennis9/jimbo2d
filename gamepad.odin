@@ -9,3 +9,8 @@ Gamepad_Interface :: struct {
 
 @private
 _gamepad: Gamepad_Interface
+
+@private
+use_gamepad_interface :: proc(iface: Gamepad_Interface) {
+	_gamepad = iface
+}

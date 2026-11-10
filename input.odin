@@ -124,6 +124,18 @@ send_mouse_up :: proc "contextless" (button: Mouse_Button) {
 	_input.mouse &= ~{button}
 }
 
+is_mouse_down :: proc "contextless" (button: Mouse_Button) -> bool {
+	return button in _input.mouse
+}
+
+is_mouse_clicked :: proc "contextless" (button: Mouse_Button) -> bool {
+	return button in _input.mouse && button not_in _input.old_mouse
+}
+
+is_mouse_released :: proc "contextless" (button: Mouse_Button) -> bool {
+	return button not_in _input.mouse && button in _input.old_mouse
+}
+
 // -----------------------------------------------------------------------------
 // Gamepad
 // -----------------------------------------------------------------------------
