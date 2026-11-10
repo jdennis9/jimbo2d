@@ -270,25 +270,25 @@ draw_quad :: proc(positions: [4]Vec2, colors: [4]Color) {
 	draw_geometry(vertices[:], indices[:], state)
 }
 
-draw_rect :: proc(r: Rect, color: Color) {
+draw_rect :: proc(pmin, pmax: Vec2, color: Color) {
 	draw_quad(
 		{
-			r.min,
-			{r.max.x, r.min.y},
-			r.max,
-			{r.min.x, r.max.y},
+			pmin,
+			{pmax.x, pmin.y},
+			pmax,
+			{pmin.x, pmax.y},
 		},
 		color,
 	)
 }
 
-draw_rect_filled :: proc(r: Rect, color: Color) {
+draw_rect_filled :: proc(pmin, pmax: Vec2, color: Color) {
 	draw_quad_filled(
 		{
-			r.min,
-			{r.max.x, r.min.y},
-			r.max,
-			{r.min.x, r.max.y},
+			pmin,
+			{pmax.x, pmin.y},
+			pmax,
+			{pmin.x, pmax.y},
 		},
 		color,
 	)
@@ -458,7 +458,7 @@ drawlist_calc_text_size :: proc(text: string) -> Vec2 {
 	return {max_x, pen.y + font.base_line_height}
 }
 
-draw_box_filled :: proc(center: Vec2, size: Vec2, rot: Rot, color: Color, uv: Rect = {}) {
+draw_box_filled :: proc(center: Vec2, size: Vec2, rot: Rot, color: Color) {
 	hs := size * 0.5
 	r := rot_to_mat2(rot)
 	draw_quad_filled({
@@ -473,7 +473,7 @@ draw_box_filled :: proc(center: Vec2, size: Vec2, rot: Rot, color: Color, uv: Re
 // the tile size.
 // @Optimization: This could generate a lot less vertices if each tile shared the same corner vertices and just
 // indexed into them (there are max 4 copies of each vertex)
-draw_texture_auto_tiled :: proc(rect: Rect, color: Color, tile_size: Vec2, texture: Texture, uv: Rect) {
+draw_texture_auto_tiled :: proc(pmin, pmax: Vec2, color: Color, tile_size: Vec2, texture: Texture, uv_min, uv_max: Vec2) {
 	state := d.base_state
 	old_state := state
 
@@ -487,8 +487,8 @@ draw_texture_auto_tiled :: proc(rect: Rect, color: Color, tile_size: Vec2, textu
 	d.base_state = state
 	defer d.base_state = old_state
 
-	x_count := int(rect.max.x - rect.min.x) / int(tile_size.x)
-	y_count := int(rect.max.y - rect.min.y) / int(tile_size.y)
+	x_count := int(pmax.x - pmin.x) / int(tile_size.x)
+	y_count := int(pmax.y - pmin.y) / int(tile_size.y)
 
 	for y in 0..<y_count {
 		for x in 0..<x_count {

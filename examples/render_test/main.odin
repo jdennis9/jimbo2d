@@ -54,7 +54,7 @@ run :: proc() -> bool {
 		{
 			pos := j2.get_mouse_pos()
 			j2.set_scope_fragment_shader(shader)
-			j2.draw_rect_filled({pos, pos + {100, 100}}, j2.COLOR_RED)
+			j2.draw_rect_filled(pos, pos + {100, 100}, j2.COLOR_RED)
 		}
 
 		j2.present()
