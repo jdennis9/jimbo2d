@@ -34,7 +34,6 @@ state: struct {
 	init_params:      Init_Params,
 	frame_allocator:  mem.Scratch,
 	default_font:     Font_Atlas,
-	drawlist:         Drawlist,
 	window_size:      Vec2,
 	ctx:              runtime.Context,
 	last_frame_start: time.Tick,
@@ -72,9 +71,7 @@ init :: proc(
 
 	load_font_from_memory(&state.default_font, DEFAULT_FONT_DATA, .SDF, 24)
 
-	reserve(&state.drawlist.commands, 128)
-	reserve(&state.drawlist.indices, 16<<10)
-	reserve(&state.drawlist.vertices, 16<<10)
+	_draw_init()
 
 	load_builtin_shaders() or_return
 
@@ -89,6 +86,7 @@ init :: proc(
 }
 
 shutdown :: proc() {
+	_draw_shutdown()
 	platform_destroy_window()
 	mem.scratch_destroy(&state.frame_allocator)
 }
@@ -104,8 +102,8 @@ on_window_close :: proc() {
 }
 
 present :: proc() {
-	drawlist_flush(&state.drawlist)
-	_video.render_frame(&state.drawlist)
+	_draw_flush()
+	_video.render_frame(get_draw_data())
 	_platform.present()
 }
 
@@ -129,7 +127,7 @@ update :: proc() -> bool {
 	state.last_frame_start = frame_start
 
 	_input_pre_update()
-	drawlist_clear(&state.drawlist)
+	_draw_new_frame()
 	mem.scratch_free_all(&state.frame_allocator)
 	_platform.poll_events()
 	_gamepad.update()
@@ -151,7 +149,6 @@ frame_allocator :: proc() -> mem.Allocator {
 
 get_default_font :: proc "contextless" () -> ^Font_Atlas {return &state.default_font}
 get_window_size :: proc "contextless" () -> Vec2 {return state.window_size}
-get_main_drawlist :: proc "contextless" () -> ^Drawlist {return &state.drawlist}
 get_context :: proc "contextless" () -> runtime.Context {return state.ctx}
 get_init_params :: proc "contextless" () -> Init_Params {return state.init_params}
 get_hooks :: proc "contextless" () -> Hooks {return state.init_params.hooks}

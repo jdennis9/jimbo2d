@@ -15,7 +15,7 @@ Video_Interface :: struct {
 	create_shader:   proc(desc: Shader_Desc) -> (rawptr, bool),
 	destroy_shader:  proc(impl: rawptr),
 	clear:           proc(color: Color),
-	render_frame:    proc(drawlist: ^Drawlist),
+	render_frame:    proc(drawlist: Draw_List),
 }
 
 // Present video backend names

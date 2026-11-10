@@ -23,7 +23,7 @@ Draw_Command :: struct {
 	state: Draw_State,
 }
 
-Drawlist :: struct {
+Draw_List :: struct {
 	commands:         [dynamic]Draw_Command,
 	vertices:         [dynamic]Vertex,
 	indices:          [dynamic]u32,
@@ -41,7 +41,11 @@ Drawlist :: struct {
 	},
 }
 
-drawlist_clear :: proc(d: ^Drawlist) {
+@(private="file")
+d: Draw_List
+
+@private
+_draw_new_frame :: proc() {
 	clear(&d.commands)
 	clear(&d.vertices)
 	clear(&d.indices)
@@ -51,7 +55,8 @@ drawlist_clear :: proc(d: ^Drawlist) {
 	d.overrides = {}
 }
 
-drawlist_flush :: proc(d: ^Drawlist) {
+@private
+_draw_flush :: proc() {
 	if d.cmd.vertex_count == 0 do return
 	append(&d.commands, d.cmd)
 	d.cmd.first_vertex = auto_cast len(d.vertices)
@@ -60,24 +65,36 @@ drawlist_flush :: proc(d: ^Drawlist) {
 	d.cmd.vertex_count = 0
 }
 
-drawlist_destroy :: proc(d: ^Drawlist) {
+@private
+_draw_shutdown :: proc() {
 	delete(d.commands)
 	delete(d.indices)
 	delete(d.vertices)
-	d^ = {}
+	d = {}
 }
 
-drawlist_get_font :: proc(d: Drawlist) -> ^Font_Atlas {
+@private
+_draw_init :: proc() {
+	reserve(&d.commands, 128)
+	reserve(&d.indices, 16<<10)
+	reserve(&d.vertices, 16<<10)
+}
+
+get_draw_data :: proc() -> Draw_List {
+	return d
+}
+
+get_current_font :: proc() -> ^Font_Atlas {
 	return d.font != nil ? d.font : get_default_font()
 }
 
 @require_results
-drawlist_calc_font_scale :: proc(d: Drawlist) -> f32 {
+calc_current_font_scale :: proc() -> f32 {
 	scale: f32 = 1
 
 	if d.target_font_size != nil {
 		targ := d.target_font_size.?
-		font := drawlist_get_font(d)
+		font := get_current_font()
 		scale = targ / font.pt_size
 	}
 
@@ -86,21 +103,21 @@ drawlist_calc_font_scale :: proc(d: Drawlist) -> f32 {
 	return scale
 }
 
-@(deferred_in_out=_drawlist_set_scope_camera_exit)
-drawlist_set_scope_camera :: proc(d: ^Drawlist, cam: Mat3) -> (old_cam: Mat3) {
+@(deferred_in_out=_set_scope_camera_exit)
+set_scope_camera :: proc(cam: Mat3) -> (old_cam: Mat3) {
 	old_cam = d.camera
 	d.camera = cam
 	return
 }
 
 @(private="file")
-_drawlist_set_scope_camera_exit :: proc(d: ^Drawlist, cam: Mat3, old_cam: Mat3) {
+_set_scope_camera_exit :: proc(cam: Mat3, old_cam: Mat3) {
 	d.camera = old_cam
 }
 
-@(deferred_in_out=_drawlist_set_scope_texture_exit)
-drawlist_set_scope_texture :: proc(
-	d: ^Drawlist, tex: Texture
+@(deferred_in_out=_set_scope_texture_exit)
+set_scope_texture :: proc(
+	tex: Texture
 ) -> (old_value: Maybe(Texture)) {
 	old_value = d.base_state.texture
 	d.base_state.texture = tex
@@ -108,64 +125,87 @@ drawlist_set_scope_texture :: proc(
 }
 
 @(private="file")
-_drawlist_set_scope_texture_exit :: proc(
-	d: ^Drawlist, tex: Texture, old_value: Maybe(Texture)
+_set_scope_texture_exit :: proc(
+	tex: Texture, old_value: Maybe(Texture)
 ) {
 	d.base_state.texture = old_value
 }
 
-@(deferred_in_out=_drawlist_set_scope_font_size_exit)
-drawlist_set_scope_font_size :: proc(d: ^Drawlist, size: f32) -> Maybe(f32) {
+@(deferred_in_out=_set_scope_font_size_exit)
+set_scope_font_size :: proc(size: f32) -> Maybe(f32) {
 	old_size := d.target_font_size
 	d.target_font_size = size
 	return old_size
 }
 
 @(private="file")
-_drawlist_set_scope_font_size_exit :: proc(
-	d: ^Drawlist, _: f32, old_size: Maybe(f32),
+_set_scope_font_size_exit :: proc(
+	_: f32, old_size: Maybe(f32),
 ) {
 	d.target_font_size = old_size
 }
 
-@(deferred_in_out=_drawlist_set_scope_font_scale_exit)
-drawlist_set_scope_font_scale :: proc(d: ^Drawlist, scale: f32) -> Maybe(f32) {
+@(deferred_in_out=_set_scope_font_scale_exit)
+set_scope_font_scale :: proc(scale: f32) -> Maybe(f32) {
 	old_scale := d.font_scale
 	d.font_scale = scale
 	return old_scale
 }
 
 @(private="file")
-_drawlist_set_scope_font_scale_exit :: proc(
-	d: ^Drawlist, _: f32, old_scale: Maybe(f32),
+_set_scope_font_scale_exit :: proc(
+	_: f32, old_scale: Maybe(f32),
 ) {
 	d.font_scale = old_scale
 }
 
-drawlist_set_scope_clip_rect :: proc(d: ^Drawlist, rect: Rect) -> Maybe(Rect) {
+@(deferred_in_out=_set_scope_clip_rect_exit)
+set_scope_clip_rect :: proc(rect: Rect) -> Maybe(Rect) {
 	old := d.base_state.clip_rect
 	d.base_state.clip_rect = rect
 	return old
 }
 
-drawlist_get_clip_rect :: proc(d: Drawlist) -> Maybe(Rect) {
+@(private="file")
+_set_scope_clip_rect_exit :: proc(_: Rect, old_value: Maybe(Rect)) {
+	d.base_state.clip_rect = old_value
+}
+
+get_clip_rect :: proc() -> Maybe(Rect) {
 	return d.base_state.clip_rect
 }
 
-drawlist_set_clip_rect :: proc(d: ^Drawlist, rect: Maybe(Rect)) {
+set_clip_rect :: proc(rect: Maybe(Rect)) {
 	d.base_state.clip_rect = rect
 }
 
-@(private="file")
-_drawlist_set_scope_clip_rect_exit :: proc(d: ^Drawlist, _: Rect, old_value: Maybe(Rect)) {
-	d.base_state.clip_rect = old_value
+@(deferred_in_out=_set_scope_vertex_shader_exit)
+set_scope_vertex_shader :: proc(s: Maybe(Shader)) -> (old: Maybe(Shader)) {
+	old = d.overrides.vert_shader
+	d.overrides.vert_shader = s
+	return
+}
+
+_set_scope_vertex_shader_exit :: proc(_: Maybe(Shader), old: Maybe(Shader)) {
+	d.overrides.vert_shader = old
+}
+
+@(deferred_in_out=_set_scope_fragment_shader_exit)
+set_scope_fragment_shader :: proc(s: Maybe(Shader)) -> (old: Maybe(Shader)) {
+	old = d.overrides.frag_shader
+	d.overrides.frag_shader = s
+	return
+}
+
+_set_scope_fragment_shader_exit :: proc(_: Maybe(Shader), old: Maybe(Shader)) {
+	d.overrides.frag_shader = old
 }
 
 // -----------------------------------------------------------------------------
 // All drawing procs eventually end up here
 // -----------------------------------------------------------------------------
-draw_geometry :: proc(d: ^Drawlist, vertices: []Vertex, indices: []u32, state: Draw_State) {
-	if d.cmd.state != state do drawlist_flush(d)
+draw_geometry :: proc(vertices: []Vertex, indices: []u32, state: Draw_State) {
+	if d.cmd.state != state do _draw_flush()
 
 	d.cmd.state = state
 
@@ -194,7 +234,7 @@ draw_geometry :: proc(d: ^Drawlist, vertices: []Vertex, indices: []u32, state: D
 	d.cmd.index_count += auto_cast len(indices)
 }
 
-draw_quad_filled :: proc(d: ^Drawlist, positions: [4]Vec2, colors: [4]Color) {
+draw_quad_filled :: proc(positions: [4]Vec2, colors: [4]Color) {
 	vertices := [4]Vertex {
 		{pos = positions[0], color = colors[0]},
 		{pos = positions[1], color = colors[1]},
@@ -209,10 +249,10 @@ draw_quad_filled :: proc(d: ^Drawlist, positions: [4]Vec2, colors: [4]Color) {
 	state.vert_shader = SHADER_DEFAULT_VERT
 	state.frag_shader = SHADER_DEFAULT_FRAG
 
-	draw_geometry(d, vertices[:], indices[:], state)
+	draw_geometry(vertices[:], indices[:], state)
 }
 
-draw_quad :: proc(d: ^Drawlist, positions: [4]Vec2, colors: [4]Color) {
+draw_quad :: proc(positions: [4]Vec2, colors: [4]Color) {
 	vertices := [4]Vertex {
 		{pos = positions[0], color = colors[0]},
 		{pos = positions[1], color = colors[1]},
@@ -227,11 +267,11 @@ draw_quad :: proc(d: ^Drawlist, positions: [4]Vec2, colors: [4]Color) {
 	state.vert_shader = SHADER_DEFAULT_VERT
 	state.frag_shader = SHADER_DEFAULT_FRAG
 
-	draw_geometry(d, vertices[:], indices[:], state)
+	draw_geometry(vertices[:], indices[:], state)
 }
 
-draw_rect :: proc(d: ^Drawlist, r: Rect, color: Color) {
-	draw_quad(d,
+draw_rect :: proc(r: Rect, color: Color) {
+	draw_quad(
 		{
 			r.min,
 			{r.max.x, r.min.y},
@@ -242,8 +282,8 @@ draw_rect :: proc(d: ^Drawlist, r: Rect, color: Color) {
 	)
 }
 
-draw_rect_filled :: proc(d: ^Drawlist, r: Rect, color: Color) {
-	draw_quad_filled(d,
+draw_rect_filled :: proc(r: Rect, color: Color) {
+	draw_quad_filled(
 		{
 			r.min,
 			{r.max.x, r.min.y},
@@ -254,7 +294,7 @@ draw_rect_filled :: proc(d: ^Drawlist, r: Rect, color: Color) {
 	)
 }
 
-draw_line :: proc(d: ^Drawlist, p1, p2: Vec2, color: Color) {
+draw_line :: proc(p1, p2: Vec2, color: Color) {
 	vertices := [2]Vertex {
 		{pos = p1, color = color},
 		{pos = p2, color = color},
@@ -267,10 +307,10 @@ draw_line :: proc(d: ^Drawlist, p1, p2: Vec2, color: Color) {
 	state.vert_shader = SHADER_DEFAULT_VERT
 	state.frag_shader = SHADER_DEFAULT_FRAG
 
-	draw_geometry(d, vertices[:], indices[:], state)
+	draw_geometry(vertices[:], indices[:], state)
 }
 
-draw_circle :: proc(d: ^Drawlist, center: Vec2, radius: f32, color: Color, segments := 12) {
+draw_circle :: proc(center: Vec2, radius: f32, color: Color, segments := 12) {
 	vertices: [2]Vertex
 	indices := [2]u32 {0, 1}
 
@@ -292,15 +332,15 @@ draw_circle :: proc(d: ^Drawlist, center: Vec2, radius: f32, color: Color, segme
 		vertices[1].pos.x = (radius * linalg.cos(theta1)) + center.x
 		vertices[1].pos.y = (radius * linalg.sin(theta1)) + center.y
 
-		draw_geometry(d, vertices[:], indices[:], state)
+		draw_geometry(vertices[:], indices[:], state)
 	}
 }
 
-draw_circle_filled :: proc(d: ^Drawlist, center: Vec2, radius: f32, color: Color, segments := 12) {
-	draw_circle_filled_multicolor(d, center, radius, color, color, segments)
+draw_circle_filled :: proc(center: Vec2, radius: f32, color: Color, segments := 12) {
+	draw_circle_filled_multicolor(center, radius, color, color, segments)
 }
 
-draw_circle_filled_multicolor :: proc(d: ^Drawlist, center: Vec2, radius: f32, edge_color: Color, center_color: Color, segments := 12) {
+draw_circle_filled_multicolor :: proc(center: Vec2, radius: f32, edge_color: Color, center_color: Color, segments := 12) {
 	vertices: [3]Vertex
 	indices := [3]u32 {0, 1, 2}
 
@@ -324,13 +364,13 @@ draw_circle_filled_multicolor :: proc(d: ^Drawlist, center: Vec2, radius: f32, e
 		vertices[1].pos.x = (radius * linalg.cos(theta1)) + center.x
 		vertices[1].pos.y = (radius * linalg.sin(theta1)) + center.y
 
-		draw_geometry(d, vertices[:], indices[:], state)
+		draw_geometry(vertices[:], indices[:], state)
 	}
 }
 
-draw_capsule :: proc(d: ^Drawlist, p1, p2: Vec2, radius: f32, color: Color) {
-	draw_circle(d, p1, radius, color)
-	draw_circle(d, p2, radius, color)
+draw_capsule :: proc(p1, p2: Vec2, radius: f32, color: Color) {
+	draw_circle(p1, radius, color)
+	draw_circle(p2, radius, color)
 
 	up    := Vec2{0, radius}
 	angle := vec2_angle(p2 - p1)
@@ -339,14 +379,14 @@ draw_capsule :: proc(d: ^Drawlist, p1, p2: Vec2, radius: f32, color: Color) {
 	v3    := p2 + vec2_rotate(up, make_rot(angle + linalg.PI/2))
 	v4    := p2 + vec2_rotate(up, make_rot(angle - linalg.PI/2))
 
-	draw_line(d, v1, v3, color)
-	draw_line(d, v2, v4, color)
+	draw_line(v1, v3, color)
+	draw_line(v2, v4, color)
 }
 
-draw_text :: proc(d: ^Drawlist, text: string, position: Vec2, color: Color, wrap_width: Maybe(f32) = nil) {
+draw_text :: proc(text: string, position: Vec2, color: Color, wrap_width: Maybe(f32) = nil) {
 	pen := position
-	font := drawlist_get_font(d^)
-	scale := drawlist_calc_font_scale(d^)
+	font := get_current_font()
+	scale := calc_current_font_scale()
 	state := d.base_state
 
 	state.vertex_mode = .Triangles
@@ -379,7 +419,7 @@ draw_text :: proc(d: ^Drawlist, text: string, position: Vec2, color: Color, wrap
 		umin := glyph.uv.min
 		umax := glyph.uv.max
 
-		//draw_rect_filled(d, rect, color)
+		//draw_rect_filled(rect, color)
 		vertices := []Vertex {
 			{pos = pmin,             uv = umin,             color = color},
 			{pos = {pmax.x, pmin.y}, uv = {umax.x, umin.y}, color = color},
@@ -388,20 +428,20 @@ draw_text :: proc(d: ^Drawlist, text: string, position: Vec2, color: Color, wrap
 		}
 		indices := []u32 {0, 1, 2, 0, 2, 3}
 
-		draw_geometry(d, vertices, indices, state)
+		draw_geometry(vertices, indices, state)
 	}
 }
 
-draw_text_centered :: proc(d: ^Drawlist, text: string, position: Vec2, color: Color) {
-	size := drawlist_calc_text_size(d, text)
-	draw_text(d, text, position - (size * 0.5), color)
+draw_text_centered :: proc(text: string, position: Vec2, color: Color) {
+	size := drawlist_calc_text_size(text)
+	draw_text(text, position - (size * 0.5), color)
 }
 
-drawlist_calc_text_size :: proc(d: ^Drawlist, text: string) -> Vec2 {
-	font := drawlist_get_font(d^)
+drawlist_calc_text_size :: proc(text: string) -> Vec2 {
+	font := get_current_font()
 	pen: Vec2
 	max_x: f32
-	scale := drawlist_calc_font_scale(d^)
+	scale := calc_current_font_scale()
 
 	for codepoint in text {
 		max_x = max(pen.x, max_x)
@@ -418,10 +458,10 @@ drawlist_calc_text_size :: proc(d: ^Drawlist, text: string) -> Vec2 {
 	return {max_x, pen.y + font.base_line_height}
 }
 
-draw_box_filled :: proc(d: ^Drawlist, center: Vec2, size: Vec2, rot: Rot, color: Color, uv: Rect = {}) {
+draw_box_filled :: proc(center: Vec2, size: Vec2, rot: Rot, color: Color, uv: Rect = {}) {
 	hs := size * 0.5
 	r := rot_to_mat2(rot)
-	draw_quad_filled(d, {
+	draw_quad_filled({
 		center + r * -hs,
 		center + r * Vec2{hs.x, -hs.y},
 		center + r * hs,
@@ -433,7 +473,7 @@ draw_box_filled :: proc(d: ^Drawlist, center: Vec2, size: Vec2, rot: Rot, color:
 // the tile size.
 // @Optimization: This could generate a lot less vertices if each tile shared the same corner vertices and just
 // indexed into them (there are max 4 copies of each vertex)
-draw_texture_auto_tiled :: proc(d: ^Drawlist, rect: Rect, color: Color, tile_size: Vec2, texture: Texture, uv: Rect) {
+draw_texture_auto_tiled :: proc(rect: Rect, color: Color, tile_size: Vec2, texture: Texture, uv: Rect) {
 	state := d.base_state
 	old_state := state
 
@@ -453,7 +493,7 @@ draw_texture_auto_tiled :: proc(d: ^Drawlist, rect: Rect, color: Color, tile_siz
 	for y in 0..<y_count {
 		for x in 0..<x_count {
 			//offset := Vec2{f32(x), f32(y)} * tile_size
-			//draw_rect_filled(d, {rect.min + offset, rect.min + offset + tile_size}, color)
+			//draw_rect_filled({rect.min + offset, rect.min + offset + tile_size}, color)
 		}
 	}
 }
@@ -488,7 +528,7 @@ draw_texture_auto_tiled :: proc(d: ^Drawlist, rect: Rect, color: Color, tile_siz
 
 // `source` is the rect of the sprite within the texture described in pixels
 draw_sprite :: proc(
-	d: ^Drawlist, texture: Texture, pos: Vec2, rotation: Rot = ROT_IDENTITY, source: Maybe(Rect) = nil, tint: Color = COLOR_WHITE, scale: f32 = 1,
+	texture: Texture, pos: Vec2, rotation: Rot = ROT_IDENTITY, source: Maybe(Rect) = nil, tint: Color = COLOR_WHITE, scale: f32 = 1,
 ) {
 	tex_size := Vec2{f32(texture.width), f32(texture.height)}
 	r := source.? or_else Rect{{0, 0}, tex_size}
@@ -516,6 +556,6 @@ draw_sprite :: proc(
 
 	indices := []u32 {0, 1, 2, 0, 2, 3}
 
-	draw_geometry(d, vertices, indices, state)
+	draw_geometry(vertices, indices, state)
 }
 

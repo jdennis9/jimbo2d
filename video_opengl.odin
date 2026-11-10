@@ -185,7 +185,7 @@ _destroy_shader :: proc(impl: rawptr) {
 }
 
 @(private="file")
-_render_frame :: proc(drawlist: ^Drawlist) {
+_render_frame :: proc(drawlist: Draw_List) {
 	display_size := get_window_size()
 
 	apply_state :: proc(s: Draw_State) -> (program: u32, ok: bool) {
