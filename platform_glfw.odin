@@ -120,6 +120,11 @@ use_platform_glfw :: proc() -> bool {
 		if action == glfw.PRESS do send_mouse_down(butt)
 		else if action == glfw.RELEASE do send_mouse_up(butt)
 	}
+
+	_window_close_proc :: proc "c" (window: glfw.WindowHandle) {
+		context = get_context()
+		on_window_close()
+	}
 	
 	iface.get_info = proc() -> Interface_Info {
 		return {
@@ -139,6 +144,7 @@ use_platform_glfw :: proc() -> bool {
 		
 		if _glfw.window == nil do return false
 		
+		glfw.SetWindowCloseCallback(_glfw.window, _window_close_proc)
 		glfw.SetKeyCallback(_glfw.window, _key_proc)
 		glfw.SetCursorPosCallback(_glfw.window, _cursor_pos_proc)
 		glfw.SetMouseButtonCallback(_glfw.window, _mouse_button_proc)

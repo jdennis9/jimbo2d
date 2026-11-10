@@ -38,6 +38,7 @@ opengl_init :: proc(
 	_video.destroy_texture = _destroy_texture
 	_video.create_shader   = _create_shader
 	_video.destroy_shader  = _destroy_shader
+	_video.shutdown = _shutdown
 
 	_video.clear = proc(color: Color) {
 		gl.ClearColor(f32(color.r) / 255.0, f32(color.g) / 255.0, f32(color.b) / 255.0, f32(color.a) / 255.0)
@@ -57,6 +58,18 @@ opengl_init :: proc(
 	log.debug("OpenGL ready")
 
 	return true
+}
+
+@(private="file")
+_shutdown :: proc() {
+	if _gl.vao != 0 do gl.DeleteVertexArrays(1, &_gl.vao)
+	if _gl.index_buffer != 0 do gl.DeleteBuffers(1, &_gl.index_buffer)
+	if _gl.vertex_buffer != 0 do gl.DeleteBuffers(1, &_gl.vertex_buffer)
+	for _, prog in _gl.programs {
+		if prog != 0 do gl.DeleteProgram(prog)
+	}
+	delete(_gl.programs)
+	_gl = {}
 }
 
 @(private="file")

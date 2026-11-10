@@ -40,6 +40,7 @@ state: struct {
 	last_frame_start: time.Tick,
 	last_frame_time:  time.Duration,
 	frame_count:      int,
+	want_quit:        bool,
 }
 
 init :: proc(
@@ -92,6 +93,16 @@ shutdown :: proc() {
 	mem.scratch_destroy(&state.frame_allocator)
 }
 
+request_quit :: proc() {
+	log.debug("Quitting due to user request")
+	state.want_quit = true
+}
+
+on_window_close :: proc() {
+	log.debug("Quitting due to window close")
+	state.want_quit = true
+}
+
 present :: proc() {
 	drawlist_flush(&state.drawlist)
 	_video.render_frame(&state.drawlist)
@@ -103,6 +114,8 @@ clear_window :: proc(color: Color) {
 }
 
 update :: proc() -> bool {
+	if state.want_quit do return false
+
 	if state.frame_count > 0 {
 		state.last_frame_time = time.tick_since(state.last_frame_start)
 	}
