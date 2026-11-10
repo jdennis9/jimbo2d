@@ -79,6 +79,7 @@ void main() {
 	out_color.a = 1;
 	out_color.r = vertex_position.x;
 	out_color.g = vertex_position.y;
+	out_color.b = 0;
 }
 
 `
